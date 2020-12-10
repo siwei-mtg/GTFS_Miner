@@ -12,3 +12,4 @@ test
 Makefile
 *.cfg
 pylintrc
+.gitignore

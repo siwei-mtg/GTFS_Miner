@@ -388,6 +388,33 @@ def ag_ap_generate_reshape(raw_stops):
     AG.dropna(axis = 'columns', how = 'all', inplace = True)
     return AP,AG,marker
 
+def ag_ap_generate_reshape_sncf(raw_stops):
+
+    nb_location_type = len(raw_stops.location_type.unique())
+    ap_not_in_any_ag = raw_stops[raw_stops['location_type'] == 0]['parent_station'].isnull().sum()
+    if nb_location_type == 1:
+        AP,AG = ag_ap_generate_hcluster(raw_stops)
+        marker = 'cluster méthode'
+
+    elif nb_location_type >= 2:
+        if ap_not_in_any_ag == 0 :
+            AP,AG = ag_ap_generate_asit(raw_stops)
+            marker = 'original parent station'
+        elif ap_not_in_any_ag > 0:
+            ap_potentiel = len(raw_stops.loc[raw_stops['location_type'] == 0,:])
+            if ap_potentiel <5000:
+                AP,AG = ag_ap_generate_hcluster(raw_stops)
+                marker = 'cluster méthode'
+            else:
+                AP, AG = ag_ap_generate_bigvolume(raw_stops)
+                marker = 'cluster méthode pour grand volume'
+    AP = AP.rename({'stop_id':'id_ap'},axis = 1)
+    AP.loc[:,'id_ag_num'] =AP.loc[:,'id_ag'].str[-8:].astype(np.int64)
+    AG.loc[:,'id_ag_num'] =AG.loc[:,'id_ag'].str[-8:].astype(np.int64)
+    AP.dropna(axis = 'columns', how = 'all', inplace = True)
+    AG.dropna(axis = 'columns', how = 'all', inplace = True)
+    return AP,AG,marker
+
 def ligne_generate(raw_routes):
     route_type = pd.DataFrame({'route_type' : pd.Series([0,1,2,3,4,5,6,7,11,12]),
                                'mode' : pd.Series(["tramway", "metro", "train", "bus","ferry", "tramway par cable",

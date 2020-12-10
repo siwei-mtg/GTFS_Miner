@@ -391,7 +391,7 @@ class GTFS_miner:
         ser_id_coor = GTFS_norm['ser_id_coor']
         del GTFS_norm
         # Create AG AP
-        AP, AG, marker = ag_ap_generate_reshape(stops)
+        AP, AG, marker = ag_ap_generate_reshape_sncf(stops)
         del stops
         self.dlg.progressBar.setValue(10)
         nb_AP = str(len(AP))
