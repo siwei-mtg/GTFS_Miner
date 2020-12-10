@@ -1,0 +1,14 @@
+__pycache__
+help
+i18n
+scripts
+test
+*.bat
+*.ui
+*.png
+*.txt
+*.qrc
+*.html
+Makefile
+*.cfg
+pylintrc
