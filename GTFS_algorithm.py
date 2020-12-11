@@ -549,10 +549,9 @@ def nb_course_sl(service_jour_type_export, courses_export,type_vac):
     nb_courses_par_sl_pv = pd.pivot_table(nb_courses_par_sl,values = 'nb_courses', index = ['sous_ligne'], columns = type_vac, fill_value = 0,  aggfunc=np.sum).reset_index()
     return nb_courses_par_sl_pv
 
-def calcul_headway(service_jour_type_export,courses_export,debut_HPM , fin_HPM, debut_HPS ,fin_HPS , choix_jour, type_vac):
+def calcul_headway(service_jour_type_export,courses_export,debut_HPM , fin_HPM, debut_HPS ,fin_HPS, type_vac):
 
-    servj_choisi = service_jour_type_export.loc[service_jour_type_export[type_vac]==choix_jour,:]
-    courses_jtype =  courses_export.merge(servj_choisi, on =['id_ligne','service_id'])
+    courses_jtype =  courses_export.merge(service_jour_type_export, on =['id_ligne','service_id'])
 
     mask_FM = courses_jtype['heure_depart'] < debut_HPM
     mask_HPM = (courses_jtype['heure_depart'] >= debut_HPM) & (courses_jtype['heure_depart'] < fin_HPM)
@@ -566,20 +565,18 @@ def calcul_headway(service_jour_type_export,courses_export,debut_HPM , fin_HPM, 
     courses_jtype.loc[mask_HPS,'periode'] = 'HPS'
     courses_jtype.loc[mask_FS,'periode'] = 'FS'
 
-    headway = courses_jtype.groupby(['sous_ligne','periode'],as_index = False)['id_course'].count().rename({'id_course':'nb_courses'},axis = 1)
-    headway_pv = pd.pivot_table(headway,values = 'nb_courses', index = ['sous_ligne'], columns = 'periode', fill_value = 0,  aggfunc=np.sum).reset_index()
-
+    headway = courses_jtype.groupby([type_vac, 'sous_ligne','periode'],as_index = False)['id_course'].count().rename({'id_course':'nb_courses'},axis = 1)
+    headway_pv = pd.pivot_table(headway,values = 'nb_courses', index = [type_vac,'sous_ligne'], columns = 'periode', fill_value = 0,  aggfunc=np.sum).reset_index()
     duration_FM = (debut_HPM - min(courses_jtype['heure_depart']))*24*60
     duration_HPM = (fin_HPM - debut_HPM)*24*60
     duration_HC = (debut_HPS - fin_HPM)*24*60
     duration_HPS = (fin_HPS - debut_HPS)*24*60
     duration_FS = (max(courses_jtype['heure_depart']) - fin_HPS)*24*60
-
-    headway_pv.loc[:,'Hdw_FM'] = duration_FM/headway_pv.loc[:,'FM']
-    headway_pv.loc[:,'Hdw_HPM'] = duration_HPM/headway_pv.loc[:,'HPM']
-    headway_pv.loc[:,'Hdw_HC'] = duration_HC/headway_pv.loc[:,'HC']
-    headway_pv.loc[:,'Hdw_HPS'] = duration_HPS/headway_pv.loc[:,'HPS']
-    headway_pv.loc[:,'Hdw_FS'] = duration_FS/headway_pv.loc[:,'FS']
+    headway_pv.loc[:,'HEADWAY_FM'] = duration_FM/headway_pv.loc[:,'FM']
+    headway_pv.loc[:,'HEADWAY_HPM'] = duration_HPM/headway_pv.loc[:,'HPM']
+    headway_pv.loc[:,'HEADWAY_HC'] = duration_HC/headway_pv.loc[:,'HC']
+    headway_pv.loc[:,'HEADWAY_HPS'] = duration_HPS/headway_pv.loc[:,'HPS']
+    headway_pv.loc[:,'HEADWAY_FS'] = duration_FS/headway_pv.loc[:,'FS']
     headway_pv = headway_pv.replace(np.inf, np.nan).drop(['FM','HPM','HC','HPS','FS'],axis = 1)
     return headway_pv
 

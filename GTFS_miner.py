@@ -198,8 +198,6 @@ class GTFS_miner:
             self.first_start = False
             self.dlg = GTFS_minerDialog()
         self.dlg.comboBox_zonevac.addItems(['Type_Jour_Vacances_A','Type_Jour_Vacances_B','Type_Jour_Vacances_C'])
-        self.dlg.comboBoxJtypeHDW.addItems(['Lundi_Scolaire', 'Mardi_Scolaire', 'Mercredi_Scolaire','Jeudi_Scolaire','Vendredi_Scolaire',
-            'Samedi_Scolaire', 'Dimanche_Scolaire','Semaine_Vacances','Samedi_Vacances', 'Dimanche_Vacances', 'Ferié'])
         self.dlg.progressBar.setMinimum(1)
         self.dlg.progressBar.setMaximum(100)
         self.dlg.progressBar.setValue(1)
@@ -226,7 +224,6 @@ class GTFS_miner:
             self.dlg.lineEdit_output.clear()
             self.dlg.progressText.clear()
             self.dlg.comboBox_zonevac.clear()
-            self.dlg.comboBoxJtypeHDW.clear()
             self.dlg.pushButton_input.clicked.disconnect()
             self.dlg.pushButton_output.clicked.disconnect()
             self.dlg.executeButton.clicked.disconnect()
@@ -244,7 +241,6 @@ class GTFS_miner:
         time3 =self.dlg.timeEditDebutHPS.time()
         time4 =self.dlg.timeEditFinHPS.time()
         type_vac = self.dlg.comboBox_zonevac.currentText()
-        choix_jour_type = self.dlg.comboBoxJtypeHDW.currentText()
         debut_hpm = time1.hour()/24 + time1.hour()/24/60
         fin_hpm = time2.hour()/24 + time2.hour()/24/60
         debut_hps = time3.hour()/24 + time3.hour()/24/60
@@ -322,7 +318,7 @@ class GTFS_miner:
         self.dlg.progressBar.setValue(90)
         nb_course_ligne_typejour = nb_course_ligne(service_jour_type_export, courses_export, type_vac)
         nb_course_sl_typejour = nb_course_sl(service_jour_type_export, courses_export, type_vac)
-        headway = calcul_headway(service_jour_type_export,courses_export,debut_hpm , fin_hpm, debut_hps,fin_hps , choix_jour_type,type_vac)
+        headway = calcul_headway(service_jour_type_export, courses_export, debut_hpm, fin_hpm, debut_hps, fin_hps, type_vac)
         self.dlg.progressBar.setValue(95)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service jour type terminées.")
 
