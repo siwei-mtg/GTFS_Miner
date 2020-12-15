@@ -475,7 +475,7 @@ def service_date_generate(calendar,calendar_dates,validite,Dates):
         calendar =calendar[['id_service_num', 'validite', 'start_date', 'end_date']].merge(
         validite, how = 'left', left_on='validite', right_on='valid')
         calendar.drop('valid', axis=1, inplace=True)
-        list_dates = Dates[(Dates.Date_GTFS >= min(calendar.start_date)) & (Dates.Date_GTFS <= max(calendar.start_date))]
+        list_dates = Dates[(Dates.Date_GTFS >= min(calendar.start_date)) & (Dates.Date_GTFS <= max(calendar.end_date))]
         calendar['key'] = 0
         list_dates['key'] = 0
         service_date_CJ = pd.merge(calendar, list_dates, on = 'key')

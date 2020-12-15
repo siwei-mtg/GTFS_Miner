@@ -366,7 +366,6 @@ class GTFS_miner:
         time3 =self.dlg.timeEditDebutHPS.time()
         time4 =self.dlg.timeEditFinHPS.time()
         type_vac = self.dlg.comboBox_zonevac.currentText()
-        choix_jour_type = self.dlg.comboBoxJtypeHDW.currentText()
         debut_hpm = time1.hour()/24 + time1.hour()/24/60
         fin_hpm = time2.hour()/24 + time2.hour()/24/60
         debut_hps = time3.hour()/24 + time3.hour()/24/60
@@ -442,7 +441,7 @@ class GTFS_miner:
         self.dlg.progressBar.setValue(90)
         nb_course_ligne_typejour = nb_course_ligne(service_jour_type_export, courses_export, type_vac)
         nb_course_sl_typejour = nb_course_sl(service_jour_type_export, courses_export, type_vac)
-        headway = calcul_headway(service_jour_type_export,courses_export,debut_hpm , fin_hpm, debut_hps,fin_hps , choix_jour_type,type_vac)
+        headway = calcul_headway(service_jour_type_export,courses_export,debut_hpm , fin_hpm, debut_hps,fin_hps,type_vac)
         goal_onglet_train = GOAL_train(AG,courses_export,calendar,validite,lignes_export)
         goal_onglet_trainmarche = GOAL_trainmarche(iti_arc_export,goal_onglet_train)
         self.dlg.progressBar.setValue(95)
