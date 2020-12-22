@@ -409,8 +409,8 @@ def ag_ap_generate_reshape_sncf(raw_stops):
                 AP, AG = ag_ap_generate_bigvolume(raw_stops)
                 marker = 'cluster méthode pour grand volume'
     AP = AP.rename({'stop_id':'id_ap'},axis = 1)
-    AP.loc[:,'id_ag_num'] =AP.loc[:,'id_ag'].str[-8:].astype(np.int64)
-    AG.loc[:,'id_ag_num'] =AG.loc[:,'id_ag'].str[-8:].astype(np.int64)
+    AP.loc[:,'id_ag_num'] =AP.loc[:,'id_ag'].str.replace('StopArea:OCE','').astype(np.int64)
+    AG.loc[:,'id_ag_num'] =AG.loc[:,'id_ag'].str.replace('StopArea:OCE','').astype(np.int64)
     AP.dropna(axis = 'columns', how = 'all', inplace = True)
     AG.dropna(axis = 'columns', how = 'all', inplace = True)
     return AP,AG,marker
@@ -667,7 +667,7 @@ def MEF_course_sncf(courses,route_id_coor, ser_id_coor,trip_id_coor):
     ser_id_coor).merge(
     trip_id_coor).drop(
     ['id_ligne_num'], axis = 1)[crs_cols].rename({'route_id':'id_ligne','trip_id':'id_course' },axis = 1)
-    courses_export.loc[:,'N_train'] = courses_export.loc[:,'id_course'].str.strip('OCESN').str[:6].astype(np.int32)
+    courses_export.loc[:,'N_train'] = courses_export.loc[:,'id_course'].str.strip('OCE').str.strip('SN').str.strip('ZW').str[:6].astype(np.int32)
     courses_export.loc[:,'Code_Course'] = courses_export.loc[:,'id_course'].str[11:]
     return courses_export
 
