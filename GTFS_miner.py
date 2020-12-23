@@ -444,6 +444,9 @@ class GTFS_miner:
         headway = calcul_headway(service_jour_type_export,courses_export,debut_hpm , fin_hpm, debut_hps,fin_hps,type_vac)
         goal_onglet_train = GOAL_train(AG,courses_export,calendar,validite,lignes_export)
         goal_onglet_trainmarche = GOAL_trainmarche(iti_arc_export,goal_onglet_train)
+        iti_melt = pd.melt(itineraire_export, id_vars = ['id_ligne','service_id','id_course','N_train','id_course_num','id_ag_num','ordre'],value_vars = ['heure_depart','heure_arrivee'],var_name='type_heure', value_name='horaire')
+        iti_for_get = iti_melt.sort_values(by = ['id_course_num','ordre','horaire']).reset_index(drop = True)
+        iti_for_get[['Impaire']]=iti_for_get[['N_train']]%2
         self.dlg.progressBar.setValue(95)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service jour type terminées.")
 
@@ -463,6 +466,7 @@ class GTFS_miner:
         headway.to_csv(f'{output_path}/6_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
         goal_onglet_train.to_csv(f'{output_path}/7_1_GOAL_Onlet_Train.csv', sep=';', index = False)
         goal_onglet_trainmarche.to_csv(f'{output_path}/7_1_GOAL_Onlet_TrainMarche.csv', sep=';', index = False)
+        iti_for_get.to_csv(f'{output_path}/8_1_Itinéraire_pour_GET.csv', sep=';', index = False)
 
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Export des tables traitées au {output_path} terminé!")
 
