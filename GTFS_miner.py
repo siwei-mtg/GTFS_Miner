@@ -32,6 +32,9 @@ from .resources import *
 from .GTFS_miner_dialog import GTFS_minerDialog
 from .GTFS_algorithm import *
 import os
+import datetime as dt
+import shutil
+pyodbc.pooling = False
 
 
 class GTFS_miner:
@@ -284,11 +287,11 @@ class GTFS_miner:
         self.dlg.progressBar.setValue(50)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires terminée.")
         # Create itineraire arc
-        itineraire_arc = itiarc_generate(itineraire)
+        itineraire_arc = itiarc_generate(itineraire,AG)
         self.dlg.progressBar.setValue(65)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires arcs terminées.")
         # Create courses
-        courses = course_generate(itineraire)
+        courses = course_generate(itineraire,itineraire_arc)
         self.dlg.progressBar.setValue(70)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table courses terminées.")
         # Create Sous lignes
@@ -322,20 +325,31 @@ class GTFS_miner:
         self.dlg.progressBar.setValue(95)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service jour type terminées.")
 
+        now = str(dt.datetime.now())[:19]
+        now = now.replace(":","_")
+        now = now.replace(" ","_")
+        now = now.replace("-","_")
+        src_dir= self.plugin_dir + "/resources/GTFS.accdb"
+        dst_dir=output_path + "/GTFS_"+str(now)+".accdb"
+        path_access = shutil.copy(src_dir,dst_dir)
+
+        script_src_dir= self.plugin_dir + "/resources/Mise_en_Access.R"
+        script_dst_dir= output_path + "/Mise_en_Access.R"
+        path_script = shutil.copy(script_src_dir,script_dst_dir)
         # Write output
-        AG.to_csv(f'{output_path}/1_1_Arrêts_Génériques.csv', sep=';', index = False)
-        AP.to_csv(f'{output_path}/1_2_Arrêts_Physiques.csv', sep=';', index = False)
-        lignes_export.to_csv(f'{output_path}/2_1_Lignes.csv', sep=';', index = False)
-        sl_export.to_csv(f'{output_path}/2_2_Sous_Lignes.csv', sep=';', index = False)
-        itineraire_export.to_csv(f'{output_path}/3_1_Itinéraire.csv', sep=';', index = False)
-        iti_arc_export.to_csv(f'{output_path}/3_2_Itinéraire_Arc.csv', sep=';', index = False)
-        courses_export.to_csv(f'{output_path}/3_3_Courses.csv', sep=';', index = False)
-        service_dates_export.to_csv(f'{output_path}/4_1_Service_Dates.csv', sep=';', index = False)
-        service_jour_type_export.to_csv(f'{output_path}/4_2_Service_Jourtype.csv', sep=';', index = False)
-        nb_passage_ag_typejour.to_csv(f'{output_path}/5_1_Nombre_Passage_AG.csv', sep=';', index = False)
-        nb_course_ligne_typejour.to_csv(f'{output_path}/5_2_Nombre_Courses_Lignes.csv', sep=';', index = False)
-        nb_course_sl_typejour.to_csv(f'{output_path}/5_3_Nombre_Courses_SousLignes.csv', sep=';', index = False)
-        headway.to_csv(f'{output_path}/6_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
+        AG.to_csv(f'{output_path}/A_1_Arrêts_Génériques.csv', sep=';', index = False)
+        AP.to_csv(f'{output_path}/A_2_Arrêts_Physiques.csv', sep=';', index = False)
+        lignes_export.to_csv(f'{output_path}/B_1_Lignes.csv', sep=';', index = False)
+        sl_export.to_csv(f'{output_path}/B_2_Sous_Lignes.csv', sep=';', index = False)
+        itineraire_export.to_csv(f'{output_path}/C_1_Itinéraire.csv', sep=';', index = False)
+        iti_arc_export.to_csv(f'{output_path}/C_2_Itinéraire_Arc.csv', sep=';', index = False)
+        courses_export.to_csv(f'{output_path}/C_3_Courses.csv', sep=';', index = False)
+        service_dates_export.to_csv(f'{output_path}/D_1_Service_Dates.csv', sep=';', index = False)
+        service_jour_type_export.to_csv(f'{output_path}/D_2_Service_Jourtype.csv', sep=';', index = False)
+        nb_passage_ag_typejour.to_csv(f'{output_path}/E_1_Nombre_Passage_AG.csv', sep=';', index = False)
+        nb_course_ligne_typejour.to_csv(f'{output_path}/E_2_Nombre_Courses_Lignes.csv', sep=';', index = False)
+        nb_course_sl_typejour.to_csv(f'{output_path}/E_3_Nombre_Courses_SousLignes.csv', sep=';', index = False)
+        headway.to_csv(f'{output_path}/F_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Export des tables traitées au {output_path} terminé!")
 
         # ########################################
@@ -406,26 +420,26 @@ class GTFS_miner:
         itineraire = itineraire_generate(stop_times, AP, trips)
         del stop_times
         del trips
-        self.dlg.progressBar.setValue(50)
+        self.dlg.progressBar.setValue(20)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires terminée.")
         # Create itineraire arc
-        itineraire_arc = itiarc_generate(itineraire)
-        self.dlg.progressBar.setValue(65)
+        itineraire_arc = itiarc_generate(itineraire,AG)
+        self.dlg.progressBar.setValue(25)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires arcs terminées.")
         # Create courses
-        courses = course_generate(itineraire)
-        self.dlg.progressBar.setValue(70)
+        courses = course_generate(itineraire,itineraire_arc)
+        self.dlg.progressBar.setValue(30)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table courses terminées.")
         # Create Sous lignes
         sous_ligne = sl_generate(courses)
-        self.dlg.progressBar.setValue(75)
+        self.dlg.progressBar.setValue(45)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table sous lignes terminées.")
         nb_sl = str(len(sous_ligne))
         self.dlg.progressText.append("Nombre de sous lignes : " +  nb_sl)
         # Create service date et services jour type
         service_dates, msg = service_date_generate(calendar ,calendar_dates,validite,Dates)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: {msg}")
-        self.dlg.progressBar.setValue(80)
+        self.dlg.progressBar.setValue(50)
         service_jour_type = service_jour_type_generate(service_dates,courses, type_vac)
         # Mise en forme
         lignes_export = MEF_ligne(lignes)
@@ -435,53 +449,89 @@ class GTFS_miner:
         sl_export = MEF_SL(sous_ligne,route_id_coor)
         service_dates_export = MEF_serdate(service_dates,ser_id_coor)
         service_jour_type_export = MEF_servjour(service_jour_type,route_id_coor,ser_id_coor,type_vac)
-        self.dlg.progressBar.setValue(85)
+        # Barre progression
+        self.dlg.progressBar.setValue(55)
 
         nb_passage_ag_typejour = nb_passage_ag(service_jour_type_export, itineraire_export, AG, type_vac)
-        self.dlg.progressBar.setValue(90)
+        self.dlg.progressText.append("Si ça répond plus. C'est normal car on cherche des chemins. Il faut attendre 3-5 min environ" )
+
+        self.dlg.progressBar.setValue(60)
         nb_course_ligne_typejour = nb_course_ligne(service_jour_type_export, courses_export, type_vac)
         nb_course_sl_typejour = nb_course_sl(service_jour_type_export, courses_export, type_vac)
         headway = calcul_headway(service_jour_type_export,courses_export,debut_hpm , fin_hpm, debut_hps,fin_hps,type_vac)
+
         goal_onglet_train = GOAL_train(AG,courses_export,calendar,validite,lignes_export)
-        goal_onglet_trainmarche = GOAL_trainmarche(iti_arc_export,goal_onglet_train)
-        iti_melt = pd.melt(itineraire_export, id_vars = ['id_ligne','service_id','id_course','N_train','id_course_num','id_ag_num','ordre'],value_vars = ['heure_depart','heure_arrivee'],var_name='type_heure', value_name='horaire')
+        path_ferre = self.plugin_dir+'/Resources/Reseau.mdb'
+        iti_arc_elem,list_gare_a_ajouter,list_arc_non_exist = arc_elementaire_create(itineraire_export,iti_arc_export,lignes_export,AG,path_ferre)
+        goal_onglet_trainmarche = GOAL_trainmarche(iti_arc_elem,goal_onglet_train)
+        iti_melt = pd.melt(itineraire_export, id_vars = ['id_course','id_ligne','service_id','N_train','id_course_num','id_ag_num','ordre'],value_vars = ['heure_depart','heure_arrivee'],var_name='type_heure', value_name='horaire')
         iti_for_get = iti_melt.sort_values(by = ['id_course_num','ordre','horaire']).reset_index(drop = True)
         iti_for_get[['Impaire']]=iti_for_get[['N_train']]%2
-        self.dlg.progressBar.setValue(95)
+        # Barre progression
+        self.dlg.progressBar.setValue(70)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service jour type terminées.")
+        # self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Début de l'écriture dans une base Access, cette étape peut prendre plus que 10 min...")
+        # Base Access
+        now = str(dt.datetime.now())[:19]
+        now = now.replace(":","_")
+        now = now.replace(" ","_")
+        now = now.replace("-","_")
+        src_dir= self.plugin_dir + "/resources/GTFS.accdb"
+        dst_dir=output_path + "/GTFS_"+str(now)+".accdb"
+        path_access = shutil.copy(src_dir,dst_dir)
 
-        # Write output
-        AG.to_csv(f'{output_path}/1_1_Arrêts_Génériques.csv', sep=';', index = False)
-        AP.to_csv(f'{output_path}/1_2_Arrêts_Physiques.csv', sep=';', index = False)
-        lignes_export.to_csv(f'{output_path}/2_1_Lignes.csv', sep=';', index = False)
-        sl_export.to_csv(f'{output_path}/2_2_Sous_Lignes.csv', sep=';', index = False)
-        itineraire_export.to_csv(f'{output_path}/3_1_Itinéraire.csv', sep=';', index = False)
-        iti_arc_export.to_csv(f'{output_path}/3_2_Itinéraire_Arc.csv', sep=';', index = False)
-        courses_export.to_csv(f'{output_path}/3_3_Courses.csv', sep=';', index = False)
-        service_dates_export.to_csv(f'{output_path}/4_1_Service_Dates.csv', sep=';', index = False)
-        service_jour_type_export.to_csv(f'{output_path}/4_2_Service_Jourtype.csv', sep=';', index = False)
-        nb_passage_ag_typejour.to_csv(f'{output_path}/5_1_Nombre_Passage_AG.csv', sep=';', index = False)
-        nb_course_ligne_typejour.to_csv(f'{output_path}/5_2_Nombre_Courses_Lignes.csv', sep=';', index = False)
-        nb_course_sl_typejour.to_csv(f'{output_path}/5_3_Nombre_Courses_SousLignes.csv', sep=';', index = False)
-        headway.to_csv(f'{output_path}/6_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
-        goal_onglet_train.to_csv(f'{output_path}/7_1_GOAL_Onlet_Train.csv', sep=';', index = False)
-        goal_onglet_trainmarche.to_csv(f'{output_path}/7_1_GOAL_Onlet_TrainMarche.csv', sep=';', index = False)
-        iti_for_get.to_csv(f'{output_path}/8_1_Itinéraire_pour_GET.csv', sep=';', index = False)
+        script_src_dir= self.plugin_dir + "/resources/Mise_en_Access.R"
+        script_dst_dir= output_path + "/Mise_en_Access.R"
+        path_script = shutil.copy(script_src_dir,script_dst_dir)
+        # Connexion Access
+        # connection_string = ( r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};' +
+        # #               f'DBQ={path_access};' + r'ExtendedAnsiSQL=1;')
+        # # connection_string
+        # # connection_uri = f"access+pyodbc:///?odbc_connect={urllib.parse.quote_plus(connection_string)}"
+        # # engine = create_engine(connection_uri)
 
+        # # # Write output CSV
+        AG.to_csv(f'{output_path}/A_1_Arrêts_Génériques.csv', sep=';', index = False)
+        AP.to_csv(f'{output_path}/A_2_Arrêts_Physiques.csv', sep=';', index = False)
+        lignes_export.to_csv(f'{output_path}/B_1_Lignes.csv', sep=';', index = False)
+        sl_export.to_csv(f'{output_path}/B_2_Sous_Lignes.csv', sep=';', index = False)
+        itineraire_export.to_csv(f'{output_path}/C_1_Itinéraire.csv', sep=';', index = False)
+        iti_arc_export.to_csv(f'{output_path}/C_2_Itinéraire_Arc.csv', sep=';', index = False)
+        courses_export.to_csv(f'{output_path}/C_3_Courses.csv', sep=';', index = False)
+        service_dates_export.to_csv(f'{output_path}/D_1_Service_Dates.csv', sep=';', index = False)
+        service_jour_type_export.to_csv(f'{output_path}/D_2_Service_Jourtype.csv', sep=';', index = False)
+        nb_passage_ag_typejour.to_csv(f'{output_path}/E_1_Nombre_Passage_AG.csv', sep=';', index = False)
+        nb_course_ligne_typejour.to_csv(f'{output_path}/E_2_Nombre_Courses_Lignes.csv', sep=';', index = False)
+        nb_course_sl_typejour.to_csv(f'{output_path}/E_3_Nombre_Courses_SousLignes.csv', sep=';', index = False)
+        headway.to_csv(f'{output_path}/F_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
+        goal_onglet_train.to_csv(f'{output_path}/G_1_GOAL_Onlet_Train.csv', sep=';', index = False)
+        goal_onglet_trainmarche.to_csv(f'{output_path}/G_2_GOAL_Onlet_TrainMarche.csv', sep=';', index = False)
+        iti_for_get.to_csv(f'{output_path}/G_3_Itinéraire_pour_GET.csv', sep=';', index = False)
+        list_gare_a_ajouter.to_csv(f'{output_path}/zzz_BaseFer_1_Gares_Manquantes.csv', sep=';', index = False)
+        list_arc_non_exist.to_csv(f'{output_path}/zzz_BaseFer_2_Arcs_Manquants.csv', sep=';', index = False)
+
+        # AG.to_sql('1_1_Arrêts_Génériques', engine, index=False, if_exists='replace', method='multi')
+        # AP.to_sql('1_2_Arrêts_Physiques', engine, index=False, if_exists='replace', method='multi')
+        # lignes_export.to_sql('2_1_Lignes', engine, index=False, if_exists='replace', method='multi')
+        # sl_export.to_sql('2_2_Sous_Lignes', engine, index=False, if_exists='replace', method='multi')
+        # itineraire_export.to_sql('3_1_Itinéraire', engine, index=False, if_exists='replace', method='multi')
+        # iti_arc_export.to_sql('3_2_Itinéraire_Arc', engine, index=False, if_exists='replace', method='multi')
+        # courses_export.to_sql('3_3_Courses', engine, index=False, if_exists='replace', method='multi')
+        # service_dates_export.to_sql('4_1_Service_Dates', engine, index=False, if_exists='replace', method='multi')
+        # service_jour_type_export.to_sql('4_2_Service_Jourtype', engine, index=False, if_exists='replace', method='multi')
+        # nb_passage_ag.to_sql('5_1_Nombre_Passage_AG', engine, index=False, if_exists='replace', method='multi')
+        # nb_course_l.to_sql('5_2_Nombre_Courses_Lignes', engine, index=False, if_exists='replace', method='multi')
+        # nb_crs_sl.to_sql('5_3_Nombre_Courses_SousLignes', engine, index=False, if_exists='replace', method='multi')
+        # goal_onglet_train.to_sql('7_1_GOAL_Onlet_Train', sep=';', index = False, method='multi')
+        # goal_onglet_trainmarche.to_sql('7_1_GOAL_Onlet_TrainMarche', sep=';', index = False, method='multi')
+        # iti_for_get.to_sql('8_1_Itinéraire_pour_GET', sep=';', index = False, method='multi')
+        # list_gare_a_ajouter.to_sql('zzz_BaseFer_1_Gares_Manquantes', sep=';', index = False, method='multi')
+        # list_arc_non_exist.to_sql('zzz_BaseFer_2_Arcs_Manquants', sep=';', index = False, method='multi')
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Export des tables traitées au {output_path} terminé!")
 
-        # ########################################
-        # listfile = ['1_1_Arrêts_Génériques','1_2_Arrêts_Physiques','2_1_Lignes','2_2_Sous_Lignes','3_1_Itinéraire',
-        # '3_2_Itinéraire_Arc','3_3_Courses','4_1_Service_Dates','4_2_Service_Jourtype',
-        # '5_1_Nombre_Passage_AG','5_2_Nombre_Courses_Lignes','5_3_Nombre_Courses_SousLignes' ]
-        # access_path = f'{output_path}/GTFS.accdb'
-        # shutil.copy(f'{self.plugin_dir}/Resources/GTFS.accdb', access_path)
-        # for i in listfile:
-        #     export_access(access_path, i, output_path)
-        # for i in listfile:
-        #     os.remove(f'{output_path}/{i}.csv')
-        # ########################################
         t9 = time.time()
         success_message = f'Extraction terminée! Le petit a pris {round(t9 - t0)} seconds pour faire tout ce boulot. Donne lui un bravo :)'
         self.dlg.progressText.append(success_message)
         self.dlg.progressBar.setValue(100)
+
+
