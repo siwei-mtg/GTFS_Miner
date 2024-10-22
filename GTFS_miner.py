@@ -239,6 +239,7 @@ class GTFS_miner:
         return user_inputs
 
     def lancer(self):
+        start_time = round(time.time(),2)
         # Read raw data
         user_inputs = self.userInput()
         
@@ -266,14 +267,16 @@ class GTFS_miner:
         logger.info("Traitement des données GTFS commence...")
 
         # Lecture données brutes
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Début de la lecture des données brutes")
         raw,meta,dates,routeTypes = read_raw_GTFSdata(rawPath,self.plugin_dir)
         shapes_not_exist = raw.get('shapes') is None
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Fin de la lecture des données brutes")
 
         # Write the data to a JSON file
         with open(meta_file_path, 'w', encoding='utf-8') as json_file:
             json.dump(meta, json_file, ensure_ascii=False, indent=4)
         logger.info(f"metadata json file wrote to {log_file_path}")
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Lecture des données brutes terminée.")
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Fin de l'écriture du fichier json.")
 
         # Update data quality tables 
         datasetQuality = datasetLevelInfo(meta)
@@ -281,36 +284,74 @@ class GTFS_miner:
 
         tableQuality = tableLevelInfo(meta)
         self.dlg.tableQualityTableView(tableQuality)
-       
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Fin de la mise à jour des tables qualité des données")
+
         # Normalization
         GTFS_norm = normalize_raw_data(raw)
         self.dlg.progressBar.setValue(5)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Normalisation des données brutes terminée.")
         
         service_date = service_date_generate(GTFS_norm['calendar'],GTFS_norm['calendar_dates'],dates)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service_date terminée.")
+
         AP, AG, marker = ag_ap_generate_reshape(GTFS_norm['stops'])
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création des tables AP AG terminée.")
+
         iti = itineraire_generate(GTFS_norm['stop_times'], AP, GTFS_norm['trips'])
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraire terminée.")
+
         itiarc = itiarc_generate(iti,AG)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraire arc terminée.")
+
         course = course_generate(iti)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table course terminée.")
+
         # check existance shape and add info if so
         course_geom = shape_exist_condition(GTFS_norm,course,iti)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table course geom terminée.")
+
         sl = sl_generate(course_geom,AG)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table sous ligne terminée.")
+
         lignes = ligne_generate(sl,GTFS_norm['routes'] ,routeTypes)
         lignes_export = consolidation_ligne(lignes,course_geom,AG)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table ligne terminée.")
+
         sl_export = consolidation_sl(sl, lignes)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table sous ligne terminée.")
+
         course_export = consolidation_course(course_geom)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table course terminée.")
+
         iti_export = consolidation_iti(iti,course_export)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table itinéraire terminée.")
+
         itiarc_export = consolidation_iti_arc(itiarc,course_export)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table itinéraire arc terminée.")
+
         type_vac = "Type_Jour_Vacances_A"
         service_jtype = service_jour_type_generate(service_date,course_export,type_vac)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table service jour type terminée.")
+
         psg_ag =  nb_passage_ag(service_jtype, iti_export,AG,type_vac)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table passage ag terminée.")
+
         psg_arc = passage_arc(itiarc_export, service_jtype, AG,type_vac)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table passage arc terminée.")
+
         nb_crs_lignes = nb_course_ligne(service_jtype, course_export,type_vac, lignes_export)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table nb courses par ligne terminée.")
+
         kcc_ligne = kcc_course_ligne(service_jtype, course_export,type_vac, lignes_export, shapes_not_exist)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table kcc par ligne terminée.")
+
         kcc_sl = kcc_course_sl(service_jtype, course_export,type_vac, sl_export, shapes_not_exist)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table kcc par sous ligne terminée.")
+
         carac_sl = caract_par_sl(service_jtype,course_export, user_inputs['debut_hpm'] , user_inputs['fin_hpm'], 
                                     user_inputs['debut_hps'] ,user_inputs['fin_hps'], type_vac,sl_export)
-        
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: création de la table caractéristics des sous ligne terminée.")
+     
         AG.to_csv(f"{output_path}/A_1_Arrets_Generiques.csv", sep=';', index = False)
         AP.to_csv(f"{output_path}/A_2_Arrets_Physiques.csv", sep=';', index = False)
         lignes_export.to_csv(f"{output_path}/B_1_Lignes.csv", sep=';', index = False)
@@ -328,10 +369,16 @@ class GTFS_miner:
         kcc_sl.to_csv(f"{output_path}/F_4_KCC_Sous_Ligne.csv", sep=';', index = False)
         sl_export.to_file(f"{output_path}/G_1_Trace_Sous_Ligne.shp", driver="ESRI Shapefile")
         lignes_export.to_file(f"{output_path}/G_2_Trace_Ligne.shp", driver="ESRI Shapefile")
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: écriture des tables terminée.")
+        end_time = round(time.time(),2)
+        duration = end_time - start_time
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: temps passé total {duration}.")
+       
+
 
         # table visualization
-        self.dlg.test1TableView(lignes_export)
-        self.dlg.test2TableView(kcc_sl)
+        # self.dlg.test1TableView(lignes_export)
+        # self.dlg.test2TableView(kcc_sl)
         # self.dlg.test3TableView(dates)
         # self.dlg.test4TableView(GTFS_norm['stop_times'].head(20))
         
