@@ -1,0 +1,1 @@
+calendar_range_date['sunday'] == 1
