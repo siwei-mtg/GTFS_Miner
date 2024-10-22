@@ -31,8 +31,6 @@ from .GTFS_miner_dialog import GTFS_minerDialog
 from .extraction_and_profiling import *
 from .metadata_processing import * 
 from .data_transformation import *
-from .data_quality_check import *
-from .geometries import *
 from .data_cleaning import *
 from .data_consolidation import *
 from .data_analysis import *
