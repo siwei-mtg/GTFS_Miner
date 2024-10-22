@@ -16,3 +16,13 @@ resources.py
 *.cfg
 pylintrc
 .gitignore
+test_data
+test_date_2
+*.log
+*.json
+*.cpg
+*.dbf
+*.prj
+*.shp
+*.shx
+Calendrier.xls
