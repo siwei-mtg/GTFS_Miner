@@ -3,13 +3,16 @@ help
 i18n
 scripts
 test
+*.xls
 *.bat
 *.ui
 *.png
 *.txt
+*.csv
 *.qrc
 *.html
 Makefile
+resources.py
 *.cfg
 pylintrc
 .gitignore

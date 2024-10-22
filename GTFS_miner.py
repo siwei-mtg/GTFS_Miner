@@ -21,21 +21,27 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QObject
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction,QFileDialog,QProgressBar
-from qgis.core import Qgis
-
+#import PyQtWebEngine
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .GTFS_miner_dialog import GTFS_minerDialog
-from .GTFS_algorithm import *
+from .extraction_and_profiling import *
+from .metadata_processing import * 
+from .data_transformation import *
+from .data_quality_check import *
+from .geometries import *
+from .data_cleaning import *
+from .data_consolidation import *
+from .data_analysis import *
 import os
-import datetime as dt
-import shutil
-pyodbc.pooling = False
-
+from datetime import datetime
+import time
+import logging
+import json
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 
 class GTFS_miner:
     """QGIS Plugin Implementation."""
@@ -71,7 +77,6 @@ class GTFS_miner:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
-
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
@@ -165,10 +170,10 @@ class GTFS_miner:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/GTFS_miner/icon.png'
+        icon_path = ':/plugins/GTFS_miner/Resources/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'GTFS Extraction'),
+            text=self.tr(u'GTFS Miner'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
@@ -186,352 +191,159 @@ class GTFS_miner:
 
     def select_input_dir(self):
         input_dirname = QFileDialog.getExistingDirectory(self.dlg, "Sélectionnez le dossier des fichiers sources")
-        self.dlg.lineEdit_input.setText(input_dirname)
+        if len(input_dirname) >0 :
+            self.dlg.lineEdit_input.setText(input_dirname)
 
     def select_output_dir(self):
         output_dirname = QFileDialog.getExistingDirectory(self.dlg, "Sélectionnez le dossier des fichiers traités")
-        self.dlg.lineEdit_output.setText(output_dirname)
+        if len(output_dirname) >0 :
+            self.dlg.lineEdit_output.setText(output_dirname)
 
     def run(self):
         """Run method that performs all the real work"""
-
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start == True:
             self.first_start = False
             self.dlg = GTFS_minerDialog()
-        self.dlg.comboBox_zonevac.addItems(['Type_Jour_Vacances_A','Type_Jour_Vacances_B','Type_Jour_Vacances_C'])
-        self.dlg.progressBar.setMinimum(1)
-        self.dlg.progressBar.setMaximum(100)
-        self.dlg.progressBar.setValue(1)
-        self.dlg.helpText.setText(
-            'Hello ! Ce plugin (version alpha) permet de traiter automatiquement les données brutes GTFS.\
-             \n\nPour commencer: Il faut lui indiquer le dossier des données d\'entrée où il y a l\'ensemble de fichier au format GTFS (agency, stops, etc..),\
-              le dossier où vous voulez mettre les fichiers traités, ainsi que la zone de vacances où trouve le réseau.\
-              \n\nMerci de ne pas cliquer inutilement pendant le calcul, car en fonction de la taille, le traitement peut être lourd\n\n\
-              Par exemple: les GTFS des villes moyennes prennent seulement quelques seconds à calculer. En revanche,la base GTFS IDF, le temps peut aller jusqu\'à 5min (prenez un café ;).\
-              \n\nPour l\'instant il se peut qu\'il y a des réseaux que le plugin n\'est pas capable de traiter. \
-              Dans ce cas n\'hésitez pas à contacter Wei (wei.si@transamo.com).\n' )
-
-        self.dlg.pushButton_input.clicked.connect(self.select_input_dir)
-        self.dlg.pushButton_output.clicked.connect(self.select_output_dir)
-        self.dlg.executeButton.clicked.connect(self.execute_gtfs)
-        self.dlg.pushButtonSNCF.clicked.connect(self.execute_gtfs_sncf)
+        # Initialize dialog interface
+        self.dlg.initDialog()
+        # Connect signals
+        self.dlg.connectSignals(self.select_input_dir, self.select_output_dir, self.lancer) 
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
-        if result:
-            self.dlg.lineEdit_input.clear()
-            self.dlg.lineEdit_output.clear()
-            self.dlg.progressText.clear()
-            self.dlg.comboBox_zonevac.clear()
-            self.dlg.pushButton_input.clicked.disconnect()
-            self.dlg.pushButton_output.clicked.disconnect()
-            self.dlg.executeButton.clicked.disconnect()
-            self.dlg.pushButtonSNCF.clicked.disconnect()
+        self.dlg.resetFields()
+        self.dlg.disconnectSignals()
 
-    def execute_gtfs(self):
+    def userInput(self):
+        # User Input
+        rawPath = self.dlg.lineEdit_input.text() # Input path of user selection
+        output_path = self.dlg.lineEdit_output.text() # Output path of user selection
+        time1 =self.dlg.timeEditDebutHPM.time() # User input time bin for periods
+        time2 =self.dlg.timeEditFinHPM.time()
+        time3 =self.dlg.timeEditDebutHPS.time()
+        time4 =self.dlg.timeEditFinHPS.time()
+        type_vac = self.dlg.comboBox_zonevac.currentText()
+        debut_hpm = time1.hour()/24 + time1.hour()/24/60
+        fin_hpm = time2.hour()/24 + time2.hour()/24/60
+        debut_hps = time3.hour()/24 + time3.hour()/24/60
+        fin_hps = time4.hour()/24 + time4.hour()/24/60
+        user_inputs = {'rawPath':rawPath,
+                       'output_path':output_path,
+                       'type_vac':type_vac,
+                       'debut_hpm':debut_hpm,
+                       'fin_hpm':fin_hpm,
+                       'debut_hps':debut_hps,
+                       'fin_hps':fin_hps}
+        return user_inputs
+
+    def lancer(self):
         # Read raw data
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Traitement des données GTFS commencé!")
-        t0 = round(time.time(),2)
-        # User Input
-        rawPath = self.dlg.lineEdit_input.text()
-        output_path = self.dlg.lineEdit_output.text()
-        time1 =self.dlg.timeEditDebutHPM.time()
-        time2 =self.dlg.timeEditFinHPM.time()
-        time3 =self.dlg.timeEditDebutHPS.time()
-        time4 =self.dlg.timeEditFinHPS.time()
-        type_vac = self.dlg.comboBox_zonevac.currentText()
-        debut_hpm = time1.hour()/24 + time1.hour()/24/60
-        fin_hpm = time2.hour()/24 + time2.hour()/24/60
-        debut_hps = time3.hour()/24 + time3.hour()/24/60
-        fin_hps = time4.hour()/24 + time4.hour()/24/60
+        user_inputs = self.userInput()
+        
+        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_2/input'))
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: input path: {rawPath}")
+        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_2/output'))
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: output path: {output_path}")
+        # Set up logging to output directory
+        meta_file_path = os.path.join(output_path, 'metadata.json')
 
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Lire les données depuis le dossier choisi...")
-        GTFS_norm, Dates, validite = read_input(rawPath,self.plugin_dir )
-        self.dlg.progressBar.setValue(5)
+        log_file_path = os.path.join(output_path, f"{datetime.now().strftime('%Y%m%d %H%M')}_traitement.log")
+
+        logger = logging.getLogger("GTFS_miner")  # Use a consistent logger name for the entire application
+        logger.setLevel(logging.DEBUG)        
+        # File handler
+        file_handler = logging.FileHandler(log_file_path)
+        formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
+        file_handler.setFormatter(formatter)       
+        # Stream handler
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)    
+        # Add handlers
+        logger.addHandler(file_handler)
+        logger.addHandler(stream_handler)
+        logger.info("Traitement des données GTFS commence...")
+
+        # Lecture données brutes
+        raw,meta,dates,routeTypes = read_raw_GTFSdata(rawPath,self.plugin_dir)
+        shapes_not_exist = raw.get('shapes') is None
+
+        # Write the data to a JSON file
+        with open(meta_file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(meta, json_file, ensure_ascii=False, indent=4)
+        logger.info(f"metadata json file wrote to {log_file_path}")
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Lecture des données brutes terminée.")
-        stops = GTFS_norm['stops']
-        routes = GTFS_norm['routes']
-        stop_times = GTFS_norm['stop_times']
-        trips = GTFS_norm['trips']
-        calendar = GTFS_norm['calendar']
-        calendar_dates = GTFS_norm['calendar_dates']
-        route_id_coor= GTFS_norm['route_id_coor']
-        trip_id_coor = GTFS_norm['trip_id_coor']
-        ser_id_coor = GTFS_norm['ser_id_coor']
-        del GTFS_norm
-        # Create AG AP
-        AP, AG, marker = ag_ap_generate_reshape(stops)
-        del stops
-        self.dlg.progressBar.setValue(10)
-        nb_AP = str(len(AP))
-        nb_AG = str(len(AG))
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création des arrêts génériques et physiques terminée.")
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Les arrêts génériques sont générés avec {marker}.")
-        self.dlg.progressText.append(f"Nombre d'arrêts génériques: {nb_AG}")
-        self.dlg.progressText.append(f"Nombre d'arrêts physiques: {nb_AP}")
-        # Create table ligne
-        lignes = ligne_generate(routes)
-        del routes
-        self.dlg.progressBar.setValue(15)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table lignes terminée.")
-        nb_lignes = str(len(lignes))
-        self.dlg.progressText.append(f"Nombre de lignes: {nb_lignes}")
-        # Create itineraire
-        itineraire = itineraire_generate(stop_times, AP, trips)
-        del stop_times
-        del trips
-        self.dlg.progressBar.setValue(50)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires terminée.")
-        # Create itineraire arc
-        itineraire_arc = itiarc_generate(itineraire,AG)
-        self.dlg.progressBar.setValue(65)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires arcs terminées.")
-        # Create courses
-        courses = course_generate(itineraire,itineraire_arc)
-        self.dlg.progressBar.setValue(70)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table courses terminées.")
-        # Create Sous lignes
-        sous_ligne = sl_generate(courses)
-        self.dlg.progressBar.setValue(75)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table sous lignes terminées.")
-        nb_sl = str(len(sous_ligne))
-        self.dlg.progressText.append("Nombre de sous lignes : " +  nb_sl)
-        # Create service date et services jour type
-        service_dates, msg = service_date_generate(calendar ,calendar_dates,validite,Dates)
-        del calendar
-        del calendar_dates
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: {msg}")
-        self.dlg.progressBar.setValue(80)
-        service_jour_type = service_jour_type_generate(service_dates,courses, type_vac)
-        # Mise en forme
-        lignes_export = MEF_ligne(lignes)
-        courses_export = MEF_course(courses, route_id_coor,trip_id_coor,ser_id_coor)
-        itineraire_export = MEF_iti(itineraire,route_id_coor,trip_id_coor,ser_id_coor)
-        iti_arc_export = MEF_iti_arc(itineraire_arc,route_id_coor,trip_id_coor,ser_id_coor)
-        sl_export = MEF_SL(sous_ligne,route_id_coor)
-        service_dates_export = MEF_serdate(service_dates,ser_id_coor)
-        service_jour_type_export = MEF_servjour(service_jour_type,route_id_coor,ser_id_coor,type_vac)
-        self.dlg.progressBar.setValue(85)
 
-        nb_passage_ag_typejour = nb_passage_ag(service_jour_type_export, itineraire_export, AG, type_vac)
-        self.dlg.progressBar.setValue(90)
-        nb_course_ligne_typejour = nb_course_ligne(service_jour_type_export, courses_export, type_vac)
-        nb_course_sl_typejour = nb_course_sl(service_jour_type_export, courses_export, type_vac)
-        headway = calcul_headway(service_jour_type_export, courses_export, debut_hpm, fin_hpm, debut_hps, fin_hps, type_vac)
-        self.dlg.progressBar.setValue(95)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service jour type terminées.")
+        # Update data quality tables 
+        datasetQuality = datasetLevelInfo(meta)
+        self.dlg.datasetQualityTableView(datasetQuality)
 
-        now = str(dt.datetime.now())[:19]
-        now = now.replace(":","_")
-        now = now.replace(" ","_")
-        now = now.replace("-","_")
-        src_dir= self.plugin_dir + "/resources/GTFS.accdb"
-        dst_dir=output_path + "/GTFS_"+str(now)+".accdb"
-        path_access = shutil.copy(src_dir,dst_dir)
-
-        script_src_dir= self.plugin_dir + "/resources/Mise_en_Access.R"
-        script_dst_dir= output_path + "/Mise_en_Access.R"
-        path_script = shutil.copy(script_src_dir,script_dst_dir)
-        # Write output
-        AG.to_csv(f'{output_path}/A_1_Arrêts_Génériques.csv', sep=';', index = False)
-        AP.to_csv(f'{output_path}/A_2_Arrêts_Physiques.csv', sep=';', index = False)
-        lignes_export.to_csv(f'{output_path}/B_1_Lignes.csv', sep=';', index = False)
-        sl_export.to_csv(f'{output_path}/B_2_Sous_Lignes.csv', sep=';', index = False)
-        itineraire_export.to_csv(f'{output_path}/C_1_Itinéraire.csv', sep=';', index = False)
-        iti_arc_export.to_csv(f'{output_path}/C_2_Itinéraire_Arc.csv', sep=';', index = False)
-        courses_export.to_csv(f'{output_path}/C_3_Courses.csv', sep=';', index = False)
-        service_dates_export.to_csv(f'{output_path}/D_1_Service_Dates.csv', sep=';', index = False)
-        service_jour_type_export.to_csv(f'{output_path}/D_2_Service_Jourtype.csv', sep=';', index = False)
-        nb_passage_ag_typejour.to_csv(f'{output_path}/E_1_Nombre_Passage_AG.csv', sep=';', index = False)
-        nb_course_ligne_typejour.to_csv(f'{output_path}/E_2_Nombre_Courses_Lignes.csv', sep=';', index = False)
-        nb_course_sl_typejour.to_csv(f'{output_path}/E_3_Nombre_Courses_SousLignes.csv', sep=';', index = False)
-        headway.to_csv(f'{output_path}/F_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Export des tables traitées au {output_path} terminé!")
-
-        # ########################################
-        # listfile = ['1_1_Arrêts_Génériques','1_2_Arrêts_Physiques','2_1_Lignes','2_2_Sous_Lignes','3_1_Itinéraire',
-        # '3_2_Itinéraire_Arc','3_3_Courses','4_1_Service_Dates','4_2_Service_Jourtype',
-        # '5_1_Nombre_Passage_AG','5_2_Nombre_Courses_Lignes','5_3_Nombre_Courses_SousLignes' ]
-        # access_path = f'{output_path}/GTFS.accdb'
-        # shutil.copy(f'{self.plugin_dir}/Resources/GTFS.accdb', access_path)
-        # for i in listfile:
-        #     export_access(access_path, i, output_path)
-        # for i in listfile:
-        #     os.remove(f'{output_path}/{i}.csv')
-        # ########################################
-        t9 = time.time()
-        success_message = f'Extraction terminée! Le petit a pris {round(t9 - t0)} seconds pour faire tout ce boulot. Donne lui un bravo :)'
-        self.dlg.progressText.append(success_message)
-        self.dlg.progressBar.setValue(100)
-
-    def execute_gtfs_sncf(self):
-         # Read raw data
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Traitement des données GTFS au format ferroviaire commencé!")
-        t0 = round(time.time(),2)
-        # User Input
-        rawPath = self.dlg.lineEdit_input.text()
-        output_path = self.dlg.lineEdit_output.text()
-        time1 =self.dlg.timeEditDebutHPM.time()
-        time2 =self.dlg.timeEditFinHPM.time()
-        time3 =self.dlg.timeEditDebutHPS.time()
-        time4 =self.dlg.timeEditFinHPS.time()
-        type_vac = self.dlg.comboBox_zonevac.currentText()
-        debut_hpm = time1.hour()/24 + time1.hour()/24/60
-        fin_hpm = time2.hour()/24 + time2.hour()/24/60
-        debut_hps = time3.hour()/24 + time3.hour()/24/60
-        fin_hps = time4.hour()/24 + time4.hour()/24/60
-
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Lire les données depuis le dossier choisi...")
-        GTFS_norm, Dates, validite = read_input(rawPath,self.plugin_dir )
+        tableQuality = tableLevelInfo(meta)
+        self.dlg.tableQualityTableView(tableQuality)
+       
+        # Normalization
+        GTFS_norm = normalize_raw_data(raw)
         self.dlg.progressBar.setValue(5)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Lecture des données brutes terminée.")
-        stops = GTFS_norm['stops']
-        routes = GTFS_norm['routes']
-        stop_times = GTFS_norm['stop_times']
-        trips = GTFS_norm['trips']
-        calendar = GTFS_norm['calendar']
-        calendar_dates = GTFS_norm['calendar_dates']
-        route_id_coor= GTFS_norm['route_id_coor']
-        trip_id_coor = GTFS_norm['trip_id_coor']
-        ser_id_coor = GTFS_norm['ser_id_coor']
-        del GTFS_norm
-        # Create AG AP
-        AP, AG, marker = ag_ap_generate_reshape_sncf(stops)
-        del stops
-        self.dlg.progressBar.setValue(10)
-        nb_AP = str(len(AP))
-        nb_AG = str(len(AG))
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création des arrêts génériques et physiques terminée.")
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Les arrêts génériques sont générés avec {marker}.")
-        self.dlg.progressText.append(f"Nombre d'arrêts génériques: {nb_AG}")
-        self.dlg.progressText.append(f"Nombre d'arrêts physiques: {nb_AP}")
-        # Create table ligne
-        lignes = ligne_generate(routes)
-        del routes
-        self.dlg.progressBar.setValue(15)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table lignes terminée.")
-        nb_lignes = str(len(lignes))
-        self.dlg.progressText.append(f"Nombre de lignes: {nb_lignes}")
-        # Create itineraire
-        itineraire = itineraire_generate(stop_times, AP, trips)
-        del stop_times
-        del trips
-        self.dlg.progressBar.setValue(20)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires terminée.")
-        # Create itineraire arc
-        itineraire_arc = itiarc_generate(itineraire,AG)
-        self.dlg.progressBar.setValue(25)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table itinéraires arcs terminées.")
-        # Create courses
-        courses = course_generate(itineraire,itineraire_arc)
-        self.dlg.progressBar.setValue(30)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table courses terminées.")
-        # Create Sous lignes
-        sous_ligne = sl_generate(courses)
-        self.dlg.progressBar.setValue(45)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table sous lignes terminées.")
-        nb_sl = str(len(sous_ligne))
-        self.dlg.progressText.append("Nombre de sous lignes : " +  nb_sl)
-        # Create service date et services jour type
-        service_dates, msg = service_date_generate(calendar ,calendar_dates,validite,Dates)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: {msg}")
-        self.dlg.progressBar.setValue(50)
-        service_jour_type = service_jour_type_generate(service_dates,courses, type_vac)
-        # Mise en forme
-        lignes_export = MEF_ligne(lignes)
-        courses_export = MEF_course_sncf(courses, route_id_coor,trip_id_coor,ser_id_coor)
-        itineraire_export = MEF_iti_sncf(itineraire,courses_export,route_id_coor, ser_id_coor,trip_id_coor)
-        iti_arc_export = MEF_iti_arc_sncf(itineraire_arc,courses_export,route_id_coor, ser_id_coor,trip_id_coor)
-        sl_export = MEF_SL(sous_ligne,route_id_coor)
-        service_dates_export = MEF_serdate(service_dates,ser_id_coor)
-        service_jour_type_export = MEF_servjour(service_jour_type,route_id_coor,ser_id_coor,type_vac)
-        # Barre progression
-        self.dlg.progressBar.setValue(55)
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Normalisation des données brutes terminée.")
+        
+        service_date = service_date_generate(GTFS_norm['calendar'],GTFS_norm['calendar_dates'],dates)
+        AP, AG, marker = ag_ap_generate_reshape(GTFS_norm['stops'])
+        iti = itineraire_generate(GTFS_norm['stop_times'], AP, GTFS_norm['trips'])
+        itiarc = itiarc_generate(iti,AG)
+        course = course_generate(iti)
+        # check existance shape and add info if so
+        course_geom = shape_exist_condition(GTFS_norm,course,iti)
+        sl = sl_generate(course_geom,AG)
+        lignes = ligne_generate(sl,GTFS_norm['routes'] ,routeTypes)
+        lignes_export = consolidation_ligne(lignes,course_geom,AG)
+        sl_export = consolidation_sl(sl, lignes)
+        course_export = consolidation_course(course_geom)
+        iti_export = consolidation_iti(iti,course_export)
+        itiarc_export = consolidation_iti_arc(itiarc,course_export)
+        type_vac = "Type_Jour_Vacances_A"
+        service_jtype = service_jour_type_generate(service_date,course_export,type_vac)
+        psg_ag =  nb_passage_ag(service_jtype, iti_export,AG,type_vac)
+        psg_arc = passage_arc(itiarc_export, service_jtype, AG,type_vac)
+        nb_crs_lignes = nb_course_ligne(service_jtype, course_export,type_vac, lignes_export)
+        kcc_ligne = kcc_course_ligne(service_jtype, course_export,type_vac, lignes_export, shapes_not_exist)
+        kcc_sl = kcc_course_sl(service_jtype, course_export,type_vac, sl_export, shapes_not_exist)
+        carac_sl = caract_par_sl(service_jtype,course_export, user_inputs['debut_hpm'] , user_inputs['fin_hpm'], 
+                                    user_inputs['debut_hps'] ,user_inputs['fin_hps'], type_vac,sl_export)
+        
+        AG.to_csv(f"{output_path}/A_1_Arrets_Generiques.csv", sep=';', index = False)
+        AP.to_csv(f"{output_path}/A_2_Arrets_Physiques.csv", sep=';', index = False)
+        lignes_export.to_csv(f"{output_path}/B_1_Lignes.csv", sep=';', index = False)
+        sl_export.to_csv(f"{output_path}/B_2_Sous_Lignes.csv", sep=';', index = False)
+        course_export.to_csv(f"{output_path}/C_1_Courses.csv", sep=';', index = False)
+        iti_export.to_csv(f"{output_path}/C_2_Itineraire.csv", sep=';', index = False)
+        itiarc_export.to_csv(f"{output_path}/C_3_Itineraire_Arc.csv", sep=';', index = False)
+        service_date.to_csv(f"{output_path}/D_1_Service_Dates.csv", sep=';', index = False)
+        service_jtype.to_csv(f"{output_path}/D_2_Service_Jourtype.csv", sep=';', index = False)
+        psg_ag.to_csv(f"{output_path}/E_1_Nombre_Passage_AG.csv", sep=';', index = False)
+        psg_arc.to_csv(f"{output_path}/E_4_Nombre_Passage_Arc.csv", sep=';', index = False)
+        nb_crs_lignes.to_csv(f"{output_path}/F_1_Nombre_Courses_Lignes.csv", sep=';', index = False)
+        carac_sl.to_csv(f"{output_path}/F_2_Caract_SousLignes.csv", sep=';', index = False)
+        kcc_ligne.to_csv(f"{output_path}/F_3_KCC_Lignes.csv", sep=';', index = False)
+        kcc_sl.to_csv(f"{output_path}/F_4_KCC_Sous_Ligne.csv", sep=';', index = False)
+        sl_export.to_file(f"{output_path}/G_1_Trace_Sous_Ligne.shp", driver="ESRI Shapefile")
+        lignes_export.to_file(f"{output_path}/G_2_Trace_Ligne.shp", driver="ESRI Shapefile")
 
-        nb_passage_ag_typejour = nb_passage_ag(service_jour_type_export, itineraire_export, AG, type_vac)
-        self.dlg.progressText.append("Si ça répond plus. C'est normal car on cherche des chemins. Il faut attendre 3-5 min environ" )
+        # table visualization
+        self.dlg.test1TableView(lignes_export)
+        self.dlg.test2TableView(kcc_sl)
+        # self.dlg.test3TableView(dates)
+        # self.dlg.test4TableView(GTFS_norm['stop_times'].head(20))
+        
 
-        self.dlg.progressBar.setValue(60)
-        nb_course_ligne_typejour = nb_course_ligne(service_jour_type_export, courses_export, type_vac)
-        nb_course_sl_typejour = nb_course_sl(service_jour_type_export, courses_export, type_vac)
-        headway = calcul_headway(service_jour_type_export,courses_export,debut_hpm , fin_hpm, debut_hps,fin_hps,type_vac)
+    def test():
+        pass
 
-        goal_onglet_train = GOAL_train(AG,courses_export,calendar,validite,lignes_export)
-        path_ferre = self.plugin_dir+'/Resources/Reseau.mdb'
-        iti_arc_elem,list_gare_a_ajouter,list_arc_non_exist = arc_elementaire_create(itineraire_export,iti_arc_export,lignes_export,AG,path_ferre)
-        goal_onglet_trainmarche = GOAL_trainmarche(iti_arc_elem,goal_onglet_train)
-        iti_melt = pd.melt(itineraire_export, id_vars = ['id_course','id_ligne','service_id','N_train','id_course_num','id_ag_num','ordre'],value_vars = ['heure_depart','heure_arrivee'],var_name='type_heure', value_name='horaire')
-        iti_for_get = iti_melt.sort_values(by = ['id_course_num','ordre','horaire']).reset_index(drop = True)
-        iti_for_get[['Impaire']]=iti_for_get[['N_train']]%2
-        # Barre progression
-        self.dlg.progressBar.setValue(70)
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service jour type terminées.")
-        # self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Début de l'écriture dans une base Access, cette étape peut prendre plus que 10 min...")
-        # Base Access
-        now = str(dt.datetime.now())[:19]
-        now = now.replace(":","_")
-        now = now.replace(" ","_")
-        now = now.replace("-","_")
-        src_dir= self.plugin_dir + "/resources/GTFS.accdb"
-        dst_dir=output_path + "/GTFS_"+str(now)+".accdb"
-        path_access = shutil.copy(src_dir,dst_dir)
+        
+        
 
-        script_src_dir= self.plugin_dir + "/resources/Mise_en_Access.R"
-        script_dst_dir= output_path + "/Mise_en_Access.R"
-        path_script = shutil.copy(script_src_dir,script_dst_dir)
-        # Connexion Access
-        # connection_string = ( r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};' +
-        # #               f'DBQ={path_access};' + r'ExtendedAnsiSQL=1;')
-        # # connection_string
-        # # connection_uri = f"access+pyodbc:///?odbc_connect={urllib.parse.quote_plus(connection_string)}"
-        # # engine = create_engine(connection_uri)
 
-        # # # Write output CSV
-        AG.to_csv(f'{output_path}/A_1_Arrêts_Génériques.csv', sep=';', index = False)
-        AP.to_csv(f'{output_path}/A_2_Arrêts_Physiques.csv', sep=';', index = False)
-        lignes_export.to_csv(f'{output_path}/B_1_Lignes.csv', sep=';', index = False)
-        sl_export.to_csv(f'{output_path}/B_2_Sous_Lignes.csv', sep=';', index = False)
-        itineraire_export.to_csv(f'{output_path}/C_1_Itinéraire.csv', sep=';', index = False)
-        iti_arc_export.to_csv(f'{output_path}/C_2_Itinéraire_Arc.csv', sep=';', index = False)
-        courses_export.to_csv(f'{output_path}/C_3_Courses.csv', sep=';', index = False)
-        service_dates_export.to_csv(f'{output_path}/D_1_Service_Dates.csv', sep=';', index = False)
-        service_jour_type_export.to_csv(f'{output_path}/D_2_Service_Jourtype.csv', sep=';', index = False)
-        nb_passage_ag_typejour.to_csv(f'{output_path}/E_1_Nombre_Passage_AG.csv', sep=';', index = False)
-        nb_course_ligne_typejour.to_csv(f'{output_path}/E_2_Nombre_Courses_Lignes.csv', sep=';', index = False)
-        nb_course_sl_typejour.to_csv(f'{output_path}/E_3_Nombre_Courses_SousLignes.csv', sep=';', index = False)
-        headway.to_csv(f'{output_path}/F_1_Fréquences_Périodes_SousLignes.csv', sep=';', index = False)
-        goal_onglet_train.to_csv(f'{output_path}/G_1_GOAL_Onlet_Train.csv', sep=';', index = False)
-        goal_onglet_trainmarche.to_csv(f'{output_path}/G_2_GOAL_Onlet_TrainMarche.csv', sep=';', index = False)
-        iti_for_get.to_csv(f'{output_path}/G_3_Itinéraire_pour_GET.csv', sep=';', index = False)
-        list_gare_a_ajouter.to_csv(f'{output_path}/zzz_BaseFer_1_Gares_Manquantes.csv', sep=';', index = False)
-        list_arc_non_exist.to_csv(f'{output_path}/zzz_BaseFer_2_Arcs_Manquants.csv', sep=';', index = False)
-
-        # AG.to_sql('1_1_Arrêts_Génériques', engine, index=False, if_exists='replace', method='multi')
-        # AP.to_sql('1_2_Arrêts_Physiques', engine, index=False, if_exists='replace', method='multi')
-        # lignes_export.to_sql('2_1_Lignes', engine, index=False, if_exists='replace', method='multi')
-        # sl_export.to_sql('2_2_Sous_Lignes', engine, index=False, if_exists='replace', method='multi')
-        # itineraire_export.to_sql('3_1_Itinéraire', engine, index=False, if_exists='replace', method='multi')
-        # iti_arc_export.to_sql('3_2_Itinéraire_Arc', engine, index=False, if_exists='replace', method='multi')
-        # courses_export.to_sql('3_3_Courses', engine, index=False, if_exists='replace', method='multi')
-        # service_dates_export.to_sql('4_1_Service_Dates', engine, index=False, if_exists='replace', method='multi')
-        # service_jour_type_export.to_sql('4_2_Service_Jourtype', engine, index=False, if_exists='replace', method='multi')
-        # nb_passage_ag.to_sql('5_1_Nombre_Passage_AG', engine, index=False, if_exists='replace', method='multi')
-        # nb_course_l.to_sql('5_2_Nombre_Courses_Lignes', engine, index=False, if_exists='replace', method='multi')
-        # nb_crs_sl.to_sql('5_3_Nombre_Courses_SousLignes', engine, index=False, if_exists='replace', method='multi')
-        # goal_onglet_train.to_sql('7_1_GOAL_Onlet_Train', sep=';', index = False, method='multi')
-        # goal_onglet_trainmarche.to_sql('7_1_GOAL_Onlet_TrainMarche', sep=';', index = False, method='multi')
-        # iti_for_get.to_sql('8_1_Itinéraire_pour_GET', sep=';', index = False, method='multi')
-        # list_gare_a_ajouter.to_sql('zzz_BaseFer_1_Gares_Manquantes', sep=';', index = False, method='multi')
-        # list_arc_non_exist.to_sql('zzz_BaseFer_2_Arcs_Manquants', sep=';', index = False, method='multi')
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Export des tables traitées au {output_path} terminé!")
-
-        t9 = time.time()
-        success_message = f'Extraction terminée! Le petit a pris {round(t9 - t0)} seconds pour faire tout ce boulot. Donne lui un bravo :)'
-        self.dlg.progressText.append(success_message)
-        self.dlg.progressBar.setValue(100)
 
 
