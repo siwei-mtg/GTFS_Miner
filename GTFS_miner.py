@@ -243,9 +243,9 @@ class GTFS_miner:
         # Read raw data
         user_inputs = self.userInput()
         
-        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data/input'))
+        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_3/input'))
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: input path: {rawPath}")
-        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data/output'))
+        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_3/output'))
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: output path: {output_path}")
         # Set up logging to output directory
         meta_file_path = os.path.join(output_path, 'metadata.json')
