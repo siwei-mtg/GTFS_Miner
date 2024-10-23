@@ -2,7 +2,10 @@ import pandas as pd
 import numpy as np
 import os
 import datetime
+import logging
 from .baseline_functions import *
+
+logger = logging.getLogger('GTFS_miner')
 
 def agency_norm(raw_agency):
     agency_v =  pd.DataFrame(columns = ['agency_id', 'agency_name', 'agency_url', 'agency_timezone',
@@ -123,55 +126,27 @@ def normalize_raw_data(rawgtfs):
     adapt gtfs data to standard form. Give a dict with normalized gtfs raw data
     '''
     # agency
-    try:
-        agency = agency_norm(rawgtfs['agency'])
-    except Exception as e:
-        logger.exception(e)
+    agency = agency_norm(rawgtfs['agency'])
     # routes
-    try:    
-        routes = routes_norm(rawgtfs['routes'])
-    except Exception as e:
-        logger.exception(e)
+    routes = routes_norm(rawgtfs['routes'])
     # stops
-    try:
-        stops = stops_norm(rawgtfs['stops'])
-    except Exception as e:
-        logger.exception(e)
+    stops = stops_norm(rawgtfs['stops'])
     # trips
-    try:    
-        trips = trips_norm(rawgtfs['trips'])
-    except Exception as e:
-        logger.exception(e)
+    trips = trips_norm(rawgtfs['trips'])
     # stop_times
-    try:
-        stop_times = stop_times_norm(rawgtfs['stop_times'])
-    except Exception as e:
-        logger.exception(e)
+    stop_times = stop_times_norm(rawgtfs['stop_times'])
     # calendar
-    try :
-        calendar = calendar_norm(rawgtfs['calendar'])
-        if len(calendar)==0:
-            calendar = None
-    except Exception as e:
+    calendar = calendar_norm(rawgtfs['calendar'])
+    if len(calendar)==0:
         calendar = None
-        logger.exception(e)
     # calendar_date
-    try:
-        calendar_dates = cal_dates_norm(rawgtfs['calendar_dates'])
-    except Exception as e:
-        calendar = None
-        logger.exception(e)
+    calendar_dates = cal_dates_norm(rawgtfs['calendar_dates'])
     # shapes
-    try :
+    if rawgtfs.get('shapes') is None:
+        result = {'agency' :agency, 'stops' :stops, 'stop_times':stop_times,'routes': routes,'trips': trips,
+                    'calendar': calendar,'calendar_dates': calendar_dates}        
+    else:
         shapes = rawgtfs['shapes']
-        if len(shapes)==0:
-            shapes = None
-            result = {'agency' :agency, 'stops' :stops, 'stop_times':stop_times,'routes': routes,'trips': trips,
-                      'calendar': calendar,'calendar_dates': calendar_dates}        
-        else:
-            result = {'agency' :agency, 'stops' :stops, 'stop_times':stop_times,'routes': routes,'trips': trips,
-                      'calendar': calendar,'calendar_dates': calendar_dates, 'shapes':shapes}
-    except Exception as e:
-        shapes = None
-        logger.exception(e)
+        result = {'agency' :agency, 'stops' :stops, 'stop_times':stop_times,'routes': routes,'trips': trips,
+                    'calendar': calendar,'calendar_dates': calendar_dates, 'shapes':shapes}
     return result

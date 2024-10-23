@@ -196,7 +196,7 @@ def shape_exist_condition(gtfs_norm_dict, course,itineraire):
     course['Dist_Vol_Oiseau'] = course['Dist_Vol_Oiseau'].round(0)
     course = course_enrich_sl_th(course)
     # if shape exist
-    if gtfs_norm_dict['shapes'] is not None:
+    if gtfs_norm_dict.get('shapes') is not None:
         logger.info("Le fichier shapes est présent.")
         shapes_with_dist = shapes_geometry_generate(gtfs_norm_dict['shapes'])
         # shape info added to course
@@ -274,7 +274,7 @@ def course_enrich_sl_th(course):
 def sl_generate(course,AG):
     AG = AG[['id_ag','stop_name']]
     course = course.merge(AG, left_on = 'id_ag_origine', right_on = 'id_ag').merge(AG, left_on = 'id_ag_destination', right_on = 'id_ag')
-    if course.get('geom_shape') is None:
+    if course.get('geom_shape') is None: # if shapes.txt no exist
         gdf_course = gpd.GeoDataFrame(course, geometry = 'geom_vo')
         cols = ['sous_ligne', 'route_id', 'direction_id','id_ag_origine','stop_name_x','id_ag_destination','stop_name_y','geom_vo']  
     else: 

@@ -81,11 +81,11 @@ def kcc_course_ligne(service_jour_type_export, courses_export,type_vac, ligne, S
     courses_jtype =  courses_export.merge(service_jour_type_export, on =['id_ligne','id_service'])
     if ShapeNoExist:
         m_par_ligne = courses_jtype.groupby(
-            ['id_ligne',type_vac], as_index = False)['DIST_Vol_Oiseau'].sum().sort_values(
+            ['id_ligne',type_vac], as_index = False)['Dist_Vol_Oiseau'].sum().sort_values(
             ['id_ligne'])
-        m_par_ligne['DIST_Vol_Oiseau'] = m_par_ligne['DIST_Vol_Oiseau']/1000
+        m_par_ligne['Dist_Vol_Oiseau'] = m_par_ligne['Dist_Vol_Oiseau']/1000
         m_par_ligne_pv = pd.pivot_table(m_par_ligne,
-                                                values = 'DIST_Vol_Oiseau', 
+                                                values = 'Dist_Vol_Oiseau', 
                                                 index = ['id_ligne'], 
                                                 columns = type_vac, 
                                                 fill_value = 0,  
@@ -110,11 +110,11 @@ def kcc_course_sl(service_jour_type_export, courses_export,type_vac, sous_ligne,
     courses_jtype =  courses_export.merge(service_jour_type_export, on =['id_ligne','id_service'])
     if ShapeNoExist:
         m_par_ligne = courses_jtype.groupby(
-            ['sous_ligne',type_vac], as_index = False)['DIST_Vol_Oiseau'].sum().sort_values(
+            ['sous_ligne',type_vac], as_index = False)['Dist_Vol_Oiseau'].sum().sort_values(
             ['sous_ligne'])
-        m_par_ligne['DIST_Vol_Oiseau'] = m_par_ligne['DIST_Vol_Oiseau']/1000
+        m_par_ligne['Dist_Vol_Oiseau'] = m_par_ligne['Dist_Vol_Oiseau']/1000
         m_par_ligne_pv = pd.pivot_table(m_par_ligne,
-                                                values = 'DIST_Vol_Oiseau', 
+                                                values = 'Dist_Vol_Oiseau', 
                                                 index = ['sous_ligne'], 
                                                 columns = type_vac, 
                                                 fill_value = 0,  
