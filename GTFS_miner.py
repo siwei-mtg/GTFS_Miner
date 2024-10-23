@@ -370,7 +370,7 @@ class GTFS_miner:
         self.dlg.progressBar.setValue(70) 
 
         # Export des fichiers
-        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Fin de l'export des tables...")    
+        self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Début de l'export des tables...")    
         AG.to_csv(f"{output_path}/A_1_Arrets_Generiques.csv", sep=';', index = False)
         AP.to_csv(f"{output_path}/A_2_Arrets_Physiques.csv", sep=';', index = False)
         lignes_export.to_csv(f"{output_path}/B_1_Lignes.csv", sep=';', index = False)
