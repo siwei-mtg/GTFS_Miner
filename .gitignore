@@ -25,5 +25,6 @@ test_date_2
 *.prj
 *.shp
 *.shx
+*.gpkg
 Calendrier.xls
 brouillon.py
