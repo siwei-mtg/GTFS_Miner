@@ -325,10 +325,10 @@ class GTFS_miner:
         # Lignes
         lignes = ligne_generate(sl,GTFS_norm['routes'] ,routeTypes)
         # Ligne - export
-        lignes_export = consolidation_ligne(lignes,course_geom,AG)
+        lignes_export, gdf_lignes = consolidation_ligne(lignes,course_geom,AG)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table ligne terminée.")
         # sous ligne - export
-        sl_export = consolidation_sl(sl, lignes)
+        sl_export, gdf_sl = consolidation_sl(sl, lignes)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Mise en forme de la table sous ligne terminée.")
         # Course - export
         course_export = consolidation_course(course_geom)
@@ -386,8 +386,8 @@ class GTFS_miner:
         carac_sl.to_csv(f"{output_path}/F_2_Caract_SousLignes.csv", sep=';', index = False)
         kcc_ligne.to_csv(f"{output_path}/F_3_KCC_Lignes.csv", sep=';', index = False)
         kcc_sl.to_csv(f"{output_path}/F_4_KCC_Sous_Ligne.csv", sep=';', index = False)
-        sl_export.to_file(f"{output_path}/G_1_Trace_Sous_Ligne.shp", driver="ESRI Shapefile")
-        lignes_export.to_file(f"{output_path}/G_2_Trace_Ligne.shp", driver="ESRI Shapefile")
+        gdf_sl.to_file(f"{output_path}/G_1_Trace_Sous_Ligne.shp", driver="ESRI Shapefile")
+        gdf_lignes.to_file(f"{output_path}/G_2_Trace_Ligne.shp", driver="ESRI Shapefile")
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Fin de l'export des tables.")
         end_time = round(time.time(),2)
         duration = round(end_time - start_time)
