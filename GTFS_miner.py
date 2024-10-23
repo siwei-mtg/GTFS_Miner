@@ -243,9 +243,9 @@ class GTFS_miner:
         # Read raw data
         user_inputs = self.userInput()
         
-        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_3/input'))
+        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_2/input'))
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: input path: {rawPath}")
-        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_3/output'))
+        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_2/output'))
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: output path: {output_path}")
         # Set up logging to output directory
         meta_file_path = os.path.join(output_path, 'metadata.json')
@@ -386,8 +386,8 @@ class GTFS_miner:
         carac_sl.to_csv(f"{output_path}/F_2_Caract_SousLignes.csv", sep=';', index = False)
         kcc_ligne.to_csv(f"{output_path}/F_3_KCC_Lignes.csv", sep=';', index = False)
         kcc_sl.to_csv(f"{output_path}/F_4_KCC_Sous_Ligne.csv", sep=';', index = False)
-        gdf_sl.to_file(f"{output_path}/G_1_Trace_Sous_Ligne.shp", driver="ESRI Shapefile")
-        gdf_lignes.to_file(f"{output_path}/G_2_Trace_Ligne.shp", driver="ESRI Shapefile")
+        gdf_sl.to_file(f"{output_path}/G_1_Trace_Sous_Ligne.gpkg", driver="GPKG")
+        gdf_lignes.to_file(f"{output_path}/G_2_Trace_Ligne.gpkg", driver="GPKG")
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Fin de l'export des tables.")
         end_time = round(time.time(),2)
         duration = round(end_time - start_time)
