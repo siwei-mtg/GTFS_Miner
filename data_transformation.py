@@ -10,17 +10,19 @@ from scipy.cluster.vq import kmeans, kmeans2
 from scipy import cluster
 import geopandas as gpd
 from shapely.geometry import Point, LineString, Polygon
+from shapely.wkt import loads
 
 logger = logging.getLogger('GTFS_miner')
 
 # transformation 1.1
 def service_date_generate(calendar,calendar_dates,dates):
-    calendar['start_date'] = pd.to_datetime(calendar['start_date'],format="%Y%m%d")
-    calendar['end_date'] = pd.to_datetime(calendar['end_date'],format="%Y%m%d")
+    if calendar_dates is None:
+        raise KeyError
     calendar_dates['date'] = pd.to_datetime(calendar_dates['date'],format="%Y%m%d")
     dates['Date_GTFS'] = pd.to_datetime(dates['Date_GTFS'],format="%Y%m%d")
     dates_small = dates[['Date_GTFS','Type_Jour']]
-
+    cal_cols = ['service_id','Date_GTFS','Type_Jour','Semaine','Mois','Annee',
+                'Type_Jour_Vacances_A','Type_Jour_Vacances_B','Type_Jour_Vacances_C']
     if calendar is None:
         logger.warning("Le fichier calendar n'est pas présent dans le jeu de données")
         result = calendar_dates.merge(dates, left_on = 'date', right_on = 'Date_GTFS',how = 'left')[cal_cols].sort_values(['service_id','Date_GTFS']).reset_index(drop = True)
@@ -29,6 +31,8 @@ def service_date_generate(calendar,calendar_dates,dates):
         result = calendar_dates.merge(dates, left_on = 'date', right_on = 'Date_GTFS',how = 'left')[cal_cols].sort_values(['service_id','Date_GTFS']).reset_index(drop = True)
     else :
         logger.info("Les fichiers calendar et calendar_dates sont bien présents.")
+        calendar['start_date'] = pd.to_datetime(calendar['start_date'],format="%Y%m%d")
+        calendar['end_date'] = pd.to_datetime(calendar['end_date'],format="%Y%m%d")
         date_range_per_service = []
         for _, row in calendar.iterrows():
             dates_service = dates_small.loc[(dates_small['Date_GTFS'] >= row['start_date']) & (dates_small['Date_GTFS'] <= row['end_date']) ].copy()
