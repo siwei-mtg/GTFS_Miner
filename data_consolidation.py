@@ -27,16 +27,9 @@ def consolidation_ligne(lignes,courses, AG):
 def consolidation_sl(sl, lignes):
     ligne_name = lignes[['id_ligne','route_short_name','route_long_name']]
     sl = pd.merge(sl,ligne_name, on = 'id_ligne')
-    if sl.get('geom_shape') is not None:
-        col =  ['sous_ligne', 'id_ligne','route_short_name','route_long_name', 'direction_id',
-                'id_ag_origine','ag_origin_name','id_ag_destination','ag_destination_name', 'geom_shape']
-        sl_export = sl[col]
-        sl_export.rename({'geom_shape':'geom'}, axis=1,inplace=True)
-    else:
-        col =  ['sous_ligne', 'id_ligne','route_short_name','route_long_name', 'direction_id',
-                'id_ag_origine','ag_origin_name','id_ag_destination','ag_destination_name', 'geom_vo']
-        sl_export = sl[col]
-        sl_export.rename({'geom_vo':'geom'}, axis=1,inplace=True)
+    col =  ['sous_ligne', 'id_ligne','route_short_name','route_long_name', 'direction_id',
+            'id_ag_origine','ag_origin_name','id_ag_destination','ag_destination_name', 'geom']
+    sl_export = sl[col]
     gdf_sl_export = gpd.GeoDataFrame(sl_export,geometry = 'geom')
     df_sl_export = sl_export.drop('geom', axis=1)
     return df_sl_export, gdf_sl_export
