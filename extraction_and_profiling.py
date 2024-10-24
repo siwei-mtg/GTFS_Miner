@@ -93,9 +93,25 @@ def generate_table_info(df, table_name):
 
 def process_special_columns(df, jsonFile):
     if 'start_date' in df.columns:
-        jsonFile['start_date'] = int(df['start_date'].min())
+        try: 
+            jsonFile['start_date'] = int(df['start_date'].min())
+        except ValueError as e:
+            jsonFile['start_date'] = None
+            logger.exception(e)
     if 'end_date' in df.columns:
-        jsonFile['end_date'] = int(df['end_date'].max())
+        try:
+            jsonFile['end_date'] = int(df['end_date'].max())
+        except ValueError as e:
+            jsonFile['end_date'] = None
+            logger.exception(e)
+    if 'date' in df.columns:
+        try:
+            jsonFile['calendarDate_min'] = int(df['date'].min())
+            jsonFile['calendarDate_max'] = int(df['date'].max())
+        except ValueError as e:
+            jsonFile['calendarDate_min'] = None
+            jsonFile['calendarDate_max'] = None
+            logger.exception(e)
     if 'route_type' in df.columns:
         jsonFile['route_type'] = ', '.join(df['route_type'].unique().astype(str))
 
