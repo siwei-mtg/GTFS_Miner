@@ -36,7 +36,7 @@ def service_date_generate(calendar,calendar_dates,dates):
             date_range_per_service.append(dates_service)
 
         date_range_per_service = pd.concat(date_range_per_service, ignore_index=True)
-        calendar.drop(['start_date','end_date'], axis= 1, inplace=True)
+        calendar = calendar.drop(['start_date','end_date'], axis= 1)
         calendar_range_date = pd.merge(calendar,date_range_per_service, on = 'service_id' )
 
         # List of days and their corresponding Type_Jour values
@@ -51,17 +51,15 @@ def service_date_generate(calendar,calendar_dates,dates):
 
         # Apply the mask to filter the DataFrame
         calendar_range_clean = calendar_range_date.loc[mask]
-        calendar_range_clean.drop(days_of_week,axis=1,inplace=True)
+        calendar_range_clean = calendar_range_clean.drop(days_of_week,axis=1)
         calendar_full_join = pd.merge(calendar_range_clean, calendar_dates, left_on=['service_id','Date_GTFS'],right_on=['service_id','date'], how='outer')
         calendar_full_join.loc[calendar_full_join['exception_type']==1,'Date_GTFS'] = calendar_full_join.loc[calendar_full_join['exception_type']==1,'date'] 
         calendar_with_exceptions = calendar_full_join.loc[calendar_full_join['exception_type'] != 2]
-        calendar_with_exceptions.drop(['Type_Jour','date','exception_type'],axis=1,inplace=True)
-        calendar_with_exceptions.sort_values(['service_id','Date_GTFS'],inplace=True)
+        calendar_with_exceptions = calendar_with_exceptions.drop(['Type_Jour','date','exception_type'],axis=1)
+        calendar_with_exceptions = calendar_with_exceptions.sort_values(['service_id','Date_GTFS'])
         service_dates = calendar_with_exceptions.merge(dates, on = 'Date_GTFS')
-        cal_cols = ['service_id','Date_GTFS','Type_Jour','Semaine','Mois','Annee',
-                    'Type_Jour_Vacances_A','Type_Jour_Vacances_B','Type_Jour_Vacances_C']
         result = service_dates[cal_cols]
-        result.rename({'service_id':'id_service'}, axis=1,inplace=True)
+    result = result.rename({'service_id':'id_service'}, axis=1)
     return result
 
 # transformation 1.2
@@ -144,8 +142,7 @@ def ag_ap_generate_reshape(raw_stops):
                 AP, AG = ag_ap_generate_bigvolume(raw_stops)
                 marker = 'cluster méthode pour grand volume'
     AP = AP.rename({'stop_id':'id_ap'},axis = 1)
-    AP.dropna(axis = 'columns', how = 'all', inplace = True)
-    AG.dropna(axis = 'columns', how = 'all', inplace = True)
+    AP = AP.dropna(axis = 'columns', how = 'all')
     return AP,AG,marker
 
 def itineraire_generate(raw_stoptimes, AP, raw_trips):
@@ -183,10 +180,10 @@ def course_generate(itineraire):
     'id_ag': ['first', 'last'],
     'stop_sequence': 'max'})
     course.columns = course.columns.map(''.join)
-    course.rename({'arrival_timemin':'heure_depart', 'departure_timemax':'heure_arrive',
-                'id_apfirst':'id_ap_origine', 'id_aplast':'id_ap_destination',
-                'id_agfirst':'id_ag_origine', 'id_aglast':'id_ag_destination',
-                'stop_sequencemax':'nb_arrets'}, axis = 1, inplace = True)
+    course = course.rename({'arrival_timemin':'heure_depart', 'departure_timemax':'heure_arrive',
+                            'id_apfirst':'id_ap_origine', 'id_aplast':'id_ap_destination',
+                            'id_agfirst':'id_ag_origine', 'id_aglast':'id_ag_destination',
+                            'stop_sequencemax':'nb_arrets'}, axis = 1)
     return course
 
 # Create tracés
@@ -275,33 +272,30 @@ def sl_generate(course,AG):
     AG = AG[['id_ag','stop_name']]
     course = course.merge(AG, left_on = 'id_ag_origine', right_on = 'id_ag').merge(AG, left_on = 'id_ag_destination', right_on = 'id_ag')
     if course.get('geom_shape') is None: # if shapes.txt no exist
-        gdf_course = gpd.GeoDataFrame(course, geometry = 'geom_vo')
-        cols = ['sous_ligne', 'route_id', 'direction_id','id_ag_origine','stop_name_x','id_ag_destination','stop_name_y','geom_vo']  
+        course = course.rename({'geom_shape':'geom'}, axis = 1)
     else: 
-        gdf_course = gpd.GeoDataFrame(course, geometry = 'geom_shape')
-        cols = ['sous_ligne', 'route_id', 'direction_id','id_ag_origine','stop_name_x','id_ag_destination','stop_name_y', 'geom_shape']  
-    group_col = ['sous_ligne', 'route_id','id_ag_origine','stop_name_x', 'id_ag_destination','stop_name_y', 'direction_id','nb_arrets']
-    gdf_sl = gdf_course.dissolve(by = group_col).reset_index()
-    gdf_sl = gdf_sl[cols]
-    gdf_sl.rename({'route_id':'id_ligne',
-                   'stop_name_x':'ag_origin_name',
-                   'stop_name_y':'ag_destination_name'}, axis = 1, inplace = True)
+        course = course.rename({'geom_vo':'geom'}, axis = 1)
+    cols = ['sous_ligne', 'route_id', 'direction_id','id_ag_origine','stop_name_x','id_ag_destination','stop_name_y','nb_arrets', 'geom']  
+    # Create sl
+    course['geom'] = course['geom'].astype(str)
+    sl = course.groupby(cols, as_index = False)['geom'].first()
+    # Convert string to geometry with shapely function loads
+    sl['geom'] = sl['geom'].apply(lambda x: loads(x) if isinstance(x, str) else x)
+    gdf_sl = gpd.GeoDataFrame(sl, geometry = 'geom')
+    gdf_sl = gdf_sl.set_crs(epsg=2154)
+    gdf_sl = gdf_sl.rename({'route_id':'id_ligne',
+                            'stop_name_x':'ag_origin_name',
+                            'stop_name_y':'ag_destination_name'}, axis = 1)
     return gdf_sl
 
 def ligne_generate(sl_gdf,raw_routes ,route_type):
-    if sl_gdf.get('geom_shape') is None:
-        col = ['id_ligne','geom_vo']
-        ligne_gdf = sl_gdf[col].dissolve(by = 'id_ligne').reset_index()
-        ligne_gdf.rename({'geom_vo':'geom'},axis =1,inplace = True)
-    else:
-        col = ['id_ligne','geom_shape']
-        ligne_gdf = sl_gdf[col].dissolve(by = 'id_ligne').reset_index()
-        ligne_gdf.rename({'geom_shape':'geom'},axis =1,inplace = True)
-    raw_routes.rename({'route_id':'id_ligne'}, axis = 1, inplace = True)
+    col = ['id_ligne','geom']
+    ligne_gdf = sl_gdf[col].dissolve(by = 'id_ligne').reset_index()
+    raw_routes = raw_routes.rename({'route_id':'id_ligne'}, axis = 1)
     lignes = pd.merge(raw_routes,ligne_gdf, on = 'id_ligne')
     lignes = pd.merge(lignes, route_type[['Code','Description']], how='left',left_on='route_type', right_on='Code')
-    lignes.drop(['Code'], axis = 1,inplace=True)
-    lignes.dropna(axis = 1, how = 'all', inplace = True)
+    lignes = lignes.drop(['Code'], axis = 1)
+    lignes = lignes.dropna(axis = 1, how = 'all')
     return lignes
 
 
