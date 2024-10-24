@@ -243,9 +243,9 @@ class GTFS_miner:
         # Read raw data
         user_inputs = self.userInput()
         
-        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_2/input'))
+        rawPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_4/input'))
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: input path: {rawPath}")
-        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_2/output'))
+        output_path = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources/test_data_4/output'))
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: output path: {output_path}")
         # Set up logging to output directory
         meta_file_path = os.path.join(output_path, 'metadata.json')
@@ -297,7 +297,7 @@ class GTFS_miner:
         # service date
         service_date = service_date_generate(GTFS_norm['calendar'],GTFS_norm['calendar_dates'],dates)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création de la table service_date terminée.")
-
+        self.dlg.test3TableView(service_date)
         # AP AG
         AP, AG, marker = ag_ap_generate_reshape(GTFS_norm['stops'])
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Création des tables AP AG terminée.")
@@ -343,6 +343,12 @@ class GTFS_miner:
 
         self.dlg.progressBar.setValue(50)
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: Début de la création des tables analytiques...")
+        # table visualization
+        self.dlg.test1TableView(service_date)
+        self.dlg.test2TableView(course_export)
+
+        # self.dlg.test4TableView(GTFS_norm['stop_times'].head(20))
+
         # Service jour type
         type_vac = "Type_Jour_Vacances_A"
         service_jtype = service_jour_type_generate(service_date,course_export,type_vac)
@@ -394,11 +400,6 @@ class GTFS_miner:
         self.dlg.progressBar.setValue(100) 
         self.dlg.progressText.append(f"{datetime.now():%H:%M:%S}: temps passé total du traitement {duration} seconds.")
        
-        # table visualization
-        # self.dlg.test1TableView(lignes_export)
-        # self.dlg.test2TableView(kcc_sl)
-        # self.dlg.test3TableView(dates)
-        # self.dlg.test4TableView(GTFS_norm['stop_times'].head(20))
 
         
         
